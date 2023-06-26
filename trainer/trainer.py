@@ -120,6 +120,9 @@ class CoFiTrainer(Trainer):
         # Tracking zs change
         self.old_zs = None
         
+        # Set early pruning ablation
+        self.early_pruning_epoch = 0
+        
     def calculate_mask_diff(self, old_masks, new_masks):
         keys = list(old_masks.keys())
         diffs = {}
@@ -284,7 +287,7 @@ class CoFiTrainer(Trainer):
             self.eval_counter.clear()
 
             for step, inputs in enumerate(epoch_iterator):
-                if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
+                if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps and self.additional_args.pruning_type is not None: #! before pruning, run 12272 steps
                     self.start_prune = True
 
                     self.optimizer = None
@@ -296,6 +299,7 @@ class CoFiTrainer(Trainer):
                     logger.info("Starting l0 regularization!")
 
                 if self.start_prune:
+                    # Support early pruning with fixed masks
                     zs = self.l0_module.forward(training=True) #! get the zs
                     if self.old_zs is None:
                         self.old_zs = zs
