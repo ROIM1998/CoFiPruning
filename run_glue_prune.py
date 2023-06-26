@@ -23,7 +23,6 @@ from trainer.trainer import CoFiTrainer
 from utils.utils import *
 from models.model_args import ModelArguments
 
-import wandb
 
 task_to_keys = {
     "cola": ("sentence", None),
