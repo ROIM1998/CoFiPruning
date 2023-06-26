@@ -122,6 +122,8 @@ class CoFiTrainer(Trainer):
         
         # Set early pruning ablation
         self.early_pruning_epoch = 0
+        self.early_pruning_step_num = 0
+        self.fixed_zs = None
         
     def calculate_mask_diff(self, old_masks, new_masks):
         keys = list(old_masks.keys())
@@ -205,6 +207,9 @@ class CoFiTrainer(Trainer):
             self.l0_module.set_lagrangian_warmup_steps(lagrangian_warmup_steps)
             logger.info(f"Prepruning finetune steps: {self.prepruning_finetune_steps}")
             logger.info(f"Lagrangian warmup steps: {lagrangian_warmup_steps}")
+        
+        if self.l0_module is not None and self.early_pruning_epoch >= 0:
+            self.early_pruning_step_num = self.early_pruning_epoch * num_update_steps_per_epoch + lagrangian_warmup_steps + self.prepruning_finetune_steps
 
         if self.args.max_steps > 0:
             self.t_total = self.args.max_steps
@@ -300,7 +305,12 @@ class CoFiTrainer(Trainer):
 
                 if self.start_prune:
                     # Support early pruning with fixed masks
-                    zs = self.l0_module.forward(training=True) #! get the zs
+                    if self.global_step <= self.early_pruning_step_num:
+                        zs = self.l0_module.forward(training=True) #! get the zs
+                        if self.global_step == self.early_pruning_step_num:
+                            self.fixed_zs = {k: v.clone().detach() for k, v in zs.items()}
+                    else:
+                        zs = self.fixed_zs
                     if self.old_zs is None:
                         self.old_zs = zs
                     if not (self.global_step - self.prepruning_finetune_steps) % 200:
