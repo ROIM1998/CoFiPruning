@@ -585,7 +585,7 @@ class CoFiTrainer(Trainer):
             zs = self.l0_module.forward(training=False)
             torch.save(zs, os.path.join(output_dir, "zs.pt"))
 
-        self.model.save_pretrained(output_dir)
+        super().save_model(output_dir)
 
     def calculate_layer_distillation_loss(self, teacher_outputs, student_outputs, zs):
         mse_loss = torch.nn.MSELoss(reduction="mean")
