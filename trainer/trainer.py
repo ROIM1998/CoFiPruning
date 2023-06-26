@@ -2,11 +2,13 @@ import math
 import os
 import sys
 import time
+import random
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+import logging as vanilla_logging
 from packaging import version
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset
@@ -29,8 +31,6 @@ from transformers.training_args import TrainingArguments
 from args import AdditionalArguments
 from utils.cofi_utils import *
 from utils.utils import *
-
-import wandb
 
 logger = logging.get_logger(__name__)
 
@@ -112,6 +112,23 @@ class CoFiTrainer(Trainer):
         log_level = args.get_process_log_level()
         logging.set_verbosity(log_level)
         logger.setLevel(log_level)
+        logFormatter = vanilla_logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+        fileHandler = vanilla_logging.FileHandler("{0}/{1}.log".format(args.output_dir, 'trainer'))
+        fileHandler.setFormatter(logFormatter)
+        logger.addHandler(fileHandler)
+        
+        # Tracking zs change
+        self.old_zs = None
+        
+    def calculate_mask_diff(self, old_masks, new_masks):
+        keys = list(old_masks.keys())
+        diffs = {}
+        for key in keys:
+            diffs[key] = {}
+            diffs[key]['diff'] = torch.sum(torch.abs((old_masks[key] >= 0.5).float() - (new_masks[key] >= 0.5).float())).item()
+            diffs[key]['0to1'] = torch.sum((old_masks[key] < 0.5) & (new_masks[key] >= 0.5)).item()
+            diffs[key]['1to0'] = torch.sum((old_masks[key] >= 0.5) & (new_masks[key] < 0.5)).item()
+        return diffs
 
     def create_optimizer_and_scheduler(self, num_training_steps: int, build_l0_optimizer:bool=True):
         def log_params(param_groups, des):
@@ -280,6 +297,13 @@ class CoFiTrainer(Trainer):
 
                 if self.start_prune:
                     zs = self.l0_module.forward(training=True) #! get the zs
+                    if self.old_zs is None:
+                        self.old_zs = zs
+                    if not (self.global_step - self.prepruning_finetune_steps) % 200:
+                        with torch.no_grad():
+                            lag_loss, expected_sparsity, target_sparsity = self.l0_module.lagrangian_regularization(self.global_step - self.prepruning_finetune_steps)
+                        logger.info(f"zs diff: {self.calculate_mask_diff(self.old_zs, zs)}, with epoch {epoch} and step {step}, with expected sparsity {expected_sparsity}, target sparsity {target_sparsity}")
+                        self.old_zs = zs
                     self.fill_inputs_with_zs(zs, inputs) #! use the zs
 
                 loss_terms = self.training_step(model, inputs)
