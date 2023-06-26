@@ -1,14 +1,18 @@
 #!/bin/bash
+#SBATCH --job-name=sample
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:1
+#SBATCH -A pnlp
+#SBATCH -t 11:00:00
 
-# Example run: bash run_FT.sh [TASK] [EX_NAME_SUFFIX]
 
-glue_low=(MRPC RTE STS-B CoLA)
-glue_high=(MNLI QQP QNLI SST-2)
+glue_low=(MRPC RTE STSB CoLA)
+glue_high=(MNLI QQP QNLI SST2)
 
-proj_dir=$n/space2
+proj_dir=.
 
-code_dir=${proj_dir}/CoFiPruning
-
+code_dir=${proj_dir}
 
 # task and data
 task_name=$1
@@ -20,49 +24,75 @@ model_name_or_path=bert-base-uncased
 # logging & saving
 logging_steps=100
 save_steps=0
-if [[ " ${glue_low[*]} " =~ ${task_name} ]]; then
-    eval_steps=50
-fi
 
-if [[ " ${glue_high[*]} " =~ ${task_name} ]]; then
-    eval_steps=500
-fi
 
 # train parameters
 max_seq_length=128
-batch_size=32
+batch_size=32 
 learning_rate=2e-5
-epochs=5
+reg_learning_rate=0.01
+epochs=20 
 
 # seed
 seed=57
 
-# output directory
+# output dir
 ex_name_suffix=$2
 ex_name=${task_name}_${ex_name_suffix}
-output_dir=$proj_dir/out-test/${task_name}/${ex_name}
-mkdir -p $output_dir
+ex_cate=$3
+output_dir=${proj_dir}/out/${task_name}/${ex_cate}/${ex_name}
+
+if [[ " ${glue_low[*]} " =~ ${task_name} ]]; then
+    eval_steps=50
+    epochs=100
+    start_saving_best_epochs=50
+    prepruning_finetune_epochs=4
+    lagrangian_warmup_epochs=20
+fi
+
+if [[ " ${glue_high[*]} " =~ ${task_name} ]]; then
+    eval_steps=500
+    prepruning_finetune_epochs=1
+    lagrangian_warmup_epochs=2
+fi
+
+# FT after pruning
 pruning_type=None
+pretrained_pruned_model=$4
+learning_rate=$5
+scheduler_type=none
+output_dir=$pretrained_pruned_model/FT-lr${learning_rate}
+epochs=20
+batch_size=64
+
+
+
+mkdir -p $output_dir
 
 python3 $code_dir/run_glue_prune.py \
-	   --output_dir ${output_dir} \
-	   --log_level info \
-	   --log_level_replica info \
-	   --logging_steps ${logging_steps} \
-	   --task_name ${task_name} \
-	   --data_dir ${data_dir} \
-	   --model_name_or_path ${model_name_or_path} \
-	   --ex_name ${ex_name} \
-	   --do_train \
-	   --do_eval \
-	   --max_seq_length ${max_seq_length} \
-	   --per_device_train_batch_size ${batch_size} \
-	   --per_device_eval_batch_size 32 \
-	   --learning_rate ${learning_rate} \
-	   --num_train_epochs ${epochs} \
-	   --overwrite_output_dir \
-	   --save_steps ${save_steps} \
-	   --eval_steps ${eval_steps} \
-	   --evaluation_strategy steps \
-	   --seed ${seed} 2>&1 | tee $output_dir/all_log.txt
-
+	--output_dir ${output_dir} \
+	--logging_steps ${logging_steps} \
+	--log_level info \
+	--log_level_replica info \
+	--task_name ${task_name} \
+	--model_name_or_path ${model_name_or_path} \
+	--ex_name ${ex_name} \
+	--do_train \
+	--do_eval \
+	--max_seq_length ${max_seq_length} \
+	--per_device_train_batch_size ${batch_size} \
+	--per_device_eval_batch_size 32 \
+	--learning_rate ${learning_rate} \
+	--reg_learning_rate ${reg_learning_rate} \
+	--num_train_epochs ${epochs} \
+	--overwrite_output_dir \
+	--save_steps ${save_steps} \
+	--eval_steps ${eval_steps} \
+	--evaluation_strategy steps \
+	--seed ${seed} \
+	--pruning_type ${pruning_type} \
+	--pretrained_pruned_model ${pretrained_pruned_model} \
+	--freeze_embeddings \
+	--scheduler_type $scheduler_type \
+	--prepruning_finetune_epochs $prepruning_finetune_epochs \
+	--lagrangian_warmup_epochs $lagrangian_warmup_epochs 2>&1 | tee ${output_dir}/log.txt
