@@ -571,8 +571,9 @@ class CoFiTrainer(Trainer):
         output_dir = output_dir if output_dir is not None else self.args.output_dir
         torch.save(self.l0_module, os.path.join(output_dir, "l0_module.pt"))
 
-        zs = self.l0_module.forward(training=False)
-        torch.save(zs, os.path.join(output_dir, "zs.pt"))
+        if self.l0_module is not None:
+            zs = self.l0_module.forward(training=False)
+            torch.save(zs, os.path.join(output_dir, "zs.pt"))
 
         self.model.save_pretrained(output_dir)
 
