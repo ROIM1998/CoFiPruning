@@ -86,6 +86,8 @@ mkdir -p $output_dir
 python3 $code_dir/run_glue_prune.py \
 	   --output_dir ${output_dir} \
 	   --logging_steps ${logging_steps} \
+     --log_level info \
+     --log_level_replica info \
 	   --task_name ${task_name} \
 	   --model_name_or_path ${model_name_or_path} \
 	   --ex_name ${ex_name} \

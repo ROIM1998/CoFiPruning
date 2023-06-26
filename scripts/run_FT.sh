@@ -46,6 +46,8 @@ pruning_type=None
 
 python3 $code_dir/run_glue_prune.py \
 	   --output_dir ${output_dir} \
+	   --log_level info \
+	   --log_level_replica info \
 	   --logging_steps ${logging_steps} \
 	   --task_name ${task_name} \
 	   --data_dir ${data_dir} \
