@@ -9,6 +9,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import logging as vanilla_logging
+import loralib as lora
+
 from packaging import version
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset
@@ -104,6 +106,7 @@ class CoFiTrainer(Trainer):
 
         self.eval_counter = Eval_Counter()
         self.start_saving_best = True if self.additional_args.pruning_type is None else False
+        self.apply_lora = self.additional_args.apply_lora
 
         self.teacher_model = teacher_model
         if self.teacher_model is not None:
@@ -221,6 +224,28 @@ class CoFiTrainer(Trainer):
                                self.args.num_train_epochs)
             num_train_epochs = self.args.num_train_epochs
             self.args.max_steps = self.t_total
+
+        # Set LoRA training if needed
+        model = self.model
+        if self.apply_lora:
+            logger.info("Applying LoRA to the model...")
+            # Support BERT only
+            for layer in range(model.config.num_hidden_layers):
+                # Set attention query and value to LoRA layers
+                q, v = model.bert.encoder.layer[layer].attention.self.query, model.bert.encoder.layer[layer].attention.self.value
+                model.bert.encoder.layer[layer].attention.self.query = lora.Linear(q.in_features, q.out_features, r=8, lora_alpha=16).to(self.args.device)
+                model.bert.encoder.layer[layer].attention.self.value = lora.Linear(v.in_features, v.out_features, r=8, lora_alpha=16).to(self.args.device)
+                model.bert.encoder.layer[layer].attention.self.query.weight.data = q.weight.data
+                model.bert.encoder.layer[layer].attention.self.value.weight.data = v.weight.data
+                model.bert.encoder.layer[layer].attention.self.query.bias.data = q.bias.data
+                model.bert.encoder.layer[layer].attention.self.value.bias.data = v.bias.data
+
+            # Tune LoRA weights only
+            for n, p in model.named_parameters():
+                if 'lora' not in n:
+                    p.requires_grad = False
+                else:
+                    p.requires_grad = True
 
         self.create_optimizer_and_scheduler(num_training_steps=self.t_total, build_l0_optimizer = self.start_prune)
 
