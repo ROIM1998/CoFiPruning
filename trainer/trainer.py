@@ -412,7 +412,6 @@ class CoFiTrainer(Trainer):
                         if logs['peak_memory_mb'] > self.peak_memory_usage:
                             self.peak_memory_usage = logs['peak_memory_mb']
                             
-                        logs['learning_rate'] = self.lr_scheduler.get_last_lr()[0]
                         torch.cuda.reset_peak_memory_stats()
                         torch.cuda.empty_cache()
 
@@ -429,6 +428,7 @@ class CoFiTrainer(Trainer):
                         logging_lag_loss_scalar = lag_loss_scalar
 
                         self.log(logs)
+                        logger.info(logs)
 
                     if self.global_step % self.args.eval_steps == 0:
                         self.evaluate()
