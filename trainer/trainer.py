@@ -107,6 +107,8 @@ class CoFiTrainer(Trainer):
         self.eval_counter = Eval_Counter()
         self.start_saving_best = True if self.additional_args.pruning_type is None else False
         self.apply_lora = self.additional_args.apply_lora
+        self.lora_r = self.additional_args.lora_r
+        self.lora_alpha = self.additional_args.lora_alpha
 
         self.teacher_model = teacher_model
         if self.teacher_model is not None:
@@ -233,12 +235,12 @@ class CoFiTrainer(Trainer):
             for layer in range(model.config.num_hidden_layers):
                 # Set attention query and value to LoRA layers
                 q, v = model.bert.encoder.layer[layer].attention.self.query, model.bert.encoder.layer[layer].attention.self.value
-                model.bert.encoder.layer[layer].attention.self.query = lora.Linear(q.in_features, q.out_features, r=8, lora_alpha=16).to(self.args.device)
-                model.bert.encoder.layer[layer].attention.self.value = lora.Linear(v.in_features, v.out_features, r=8, lora_alpha=16).to(self.args.device)
-                model.bert.encoder.layer[layer].attention.self.query.weight.data = q.weight.data
-                model.bert.encoder.layer[layer].attention.self.value.weight.data = v.weight.data
-                model.bert.encoder.layer[layer].attention.self.query.bias.data = q.bias.data
-                model.bert.encoder.layer[layer].attention.self.value.bias.data = v.bias.data
+                model.bert.encoder.layer[layer].attention.self.query = lora.Linear(q.in_features, q.out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
+                model.bert.encoder.layer[layer].attention.self.value = lora.Linear(v.in_features, v.out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
+                model.bert.encoder.layer[layer].attention.self.query.weight.data = q.weight.data.clone()
+                model.bert.encoder.layer[layer].attention.self.value.weight.data = v.weight.data.clone()
+                model.bert.encoder.layer[layer].attention.self.query.bias.data = q.bias.data.clone()
+                model.bert.encoder.layer[layer].attention.self.value.bias.data = v.bias.data.clone()
 
             # Tune LoRA weights only
             for n, p in model.named_parameters():
