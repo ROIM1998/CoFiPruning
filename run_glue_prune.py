@@ -382,6 +382,8 @@ def main():
         trainer.train()
         trainer.save_model()
         tokenizer.save_pretrained(training_args.output_dir)
+    
+    logger.info(f"Peak memory used: ", trainer.peak_memory_usage, 'MB')
 
 
 if __name__ == "__main__":

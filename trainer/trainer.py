@@ -34,6 +34,8 @@ from args import AdditionalArguments
 from utils.cofi_utils import *
 from utils.utils import *
 
+MB = 1024 * 1024
+
 logger = logging.get_logger(__name__)
 
 glue_tasks = {"cola": "matthews_correlation",
@@ -129,6 +131,11 @@ class CoFiTrainer(Trainer):
         self.early_pruning_epoch = 0
         self.early_pruning_step_num = 0
         self.fixed_zs = None
+
+        # Set cuda peak memory usage
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.empty_cache()
+        self.peak_memory_usage = 0
         
     def calculate_mask_diff(self, old_masks, new_masks):
         keys = list(old_masks.keys())
@@ -401,6 +408,13 @@ class CoFiTrainer(Trainer):
                             reg_loss_scalar - logging_reg_loss_scalar) / self.args.logging_steps
                         logs["lag_loss"] = (
                             lag_loss_scalar - logging_lag_loss_scalar) / self.args.logging_steps
+                        logs['peak_memory_mb'] = torch.cuda.max_memory_allocated() / MB
+                        if logs['peak_memory_mb'] > self.peak_memory_usage:
+                            self.peak_memory_usage = logs['peak_memory_mb']
+                            
+                        logs['learning_rate'] = self.lr_scheduler.get_last_lr()[0]
+                        torch.cuda.reset_peak_memory_stats()
+                        torch.cuda.empty_cache()
 
                         # backward compatibility for pytorch schedulers
                         if self.lr_scheduler is not None:

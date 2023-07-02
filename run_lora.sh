@@ -1,5 +1,5 @@
 TASK=SST2
-SUFFIX=sparsity0.60
+SUFFIX=sparsity0.60_lora
 EX_CATE=CoFi
 PRUNING_TYPE=structured_heads+structured_mlp+hidden+layer
 SPARSITY=0.60
