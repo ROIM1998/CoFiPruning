@@ -46,6 +46,9 @@ class AdditionalArguments():
     distill_loss_alpha: float = field(default=0.9, metadata={"help": "Distillation loss weight"})
     distill_ce_loss_alpha: float = field(default=0.1, metadata={"help": "Distillation cross entrypy loss weight"})
     distill_temp: float = field(default=2./3., metadata={"help": "Distillation temperature"})
+    apply_lora: bool = field(default=False, metadata={"help": "Whether to apply LoRA or not"})
+    lora_r: int = field(default=8, metadata={"help": "LoRA r parameter"})
+    lora_alpha: int = field(default=16, metadata={"help": "LoRA alpha parameter"})
 
     def __post_init__(self):
         if self.pretrained_pruned_model == "None":
