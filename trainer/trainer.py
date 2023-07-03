@@ -575,7 +575,7 @@ class CoFiTrainer(Trainer):
             metrics = {}
 
         if all_losses is not None and len(all_losses) > 0:
-            metrics["eval_loss"] = np.mean(all_losses)
+            metrics["eval_loss"] = np.mean(all_losses).item()
 
         if zs is not None:
             lag_loss, expected_sparsity, target_sparsity = self.l0_module.lagrangian_regularization(
