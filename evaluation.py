@@ -236,9 +236,10 @@ if __name__ == '__main__':
     task_name = sys.argv[1].lower()
     model_name_or_path = sys.argv[2]
     bs = 128
-
+    tokenizer_path = model_name_or_path if os.path.exists(os.path.join(model_name_or_path, "tokenizer_config.json")) else os.path.join(model_name_or_path, "../")
+    
     tokenizer = AutoTokenizer.from_pretrained(
-        model_name_or_path, use_fast=True if task_name == "squad" else False, padding_side="right", truncation_size="right")
+        tokenizer_path, use_fast=True if task_name == "squad" else False, padding_side="right", truncation_size="right")
 
     if task_name != "squad":
         # data_args = DataTrainingArguments(task_name=task_name,
