@@ -266,6 +266,8 @@ class CoFiTrainer(Trainer):
                     p.requires_grad = False
                 else:
                     p.requires_grad = True
+            num_tuning_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+            logger.info(f"Number of tuning parameters: {num_tuning_parameters}")
 
         self.create_optimizer_and_scheduler(num_training_steps=self.t_total, build_l0_optimizer = self.start_prune)
 
