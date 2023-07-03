@@ -385,7 +385,7 @@ def main():
         trainer.save_state()
         tokenizer.save_pretrained(training_args.output_dir)
     
-    logger.info(f"Peak memory used: ", trainer.peak_memory_usage, 'MB')
+    logger.info("Peak memory used: %f MB" % trainer.peak_memory_usage)
 
 
 if __name__ == "__main__":
