@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import random
+import json
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -136,6 +137,8 @@ class CoFiTrainer(Trainer):
         torch.cuda.reset_peak_memory_stats()
         torch.cuda.empty_cache()
         self.peak_memory_usage = 0
+        self.track_zs = True
+        self.zs_tracking = None
         
     def calculate_mask_diff(self, old_masks, new_masks):
         keys = list(old_masks.keys())
@@ -353,6 +356,11 @@ class CoFiTrainer(Trainer):
                         logger.info(f"zs diff: {self.calculate_mask_diff(self.old_zs, zs)}, with epoch {epoch} and step {step}, with expected sparsity {expected_sparsity}, target sparsity {target_sparsity}")
                         self.old_zs = zs
                     self.fill_inputs_with_zs(zs, inputs) #! use the zs
+                    if self.track_zs:
+                        if self.zs_tracking is None:
+                            self.zs_tracking = {k: [] for k in zs.keys()}
+                        for k, v in zs.items():
+                            self.zs_tracking[k].append(v.clone().detach().cpu())
 
                 loss_terms = self.training_step(model, inputs)
                 tr_loss_step = loss_terms["loss"]
@@ -422,7 +430,7 @@ class CoFiTrainer(Trainer):
                         else:
                             lr = self.args.learning_rate
 
-                        logs["learning_rate"] = lr
+                        logs["learning_rate"] = lr 
                         logging_loss_scalar = tr_loss_scalar
                         logging_reg_loss_scalar = reg_loss_scalar
                         logging_lag_loss_scalar = lag_loss_scalar
@@ -448,6 +456,10 @@ class CoFiTrainer(Trainer):
 
             if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
                 break
+        
+            if self.track_zs and self.zs_tracking is not None:
+                torch.save(self.zs_tracking, os.path.join(self.args.output_dir, "zs_tracking_%d.pt" % epoch))
+                self.zs_tracking = None
 
         train_pbar.close()
 
