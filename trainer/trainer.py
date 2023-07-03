@@ -139,6 +139,7 @@ class CoFiTrainer(Trainer):
         self.peak_memory_usage = 0
         self.track_zs = True
         self.zs_tracking = None
+        self.tuning_intermediate = self.additional_args.tuning_intermediate
         
     def calculate_mask_diff(self, old_masks, new_masks):
         keys = list(old_masks.keys())
@@ -251,6 +252,13 @@ class CoFiTrainer(Trainer):
                 model.bert.encoder.layer[layer].attention.self.value.weight.data = v.weight.data.clone()
                 model.bert.encoder.layer[layer].attention.self.query.bias.data = q.bias.data.clone()
                 model.bert.encoder.layer[layer].attention.self.value.bias.data = v.bias.data.clone()
+                
+                # Also tuning intermediate up layers
+                if self.tuning_intermediate:
+                    i = model.bert.encoder.layer[layer].intermediate.dense
+                    model.bert.encoder.layer[layer].intermediate.dense = lora.Linear(i.in_features, i.  out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
+                    model.bert.encoder.layer[layer].intermediate.dense.weight.data = i.weight.data.clone()
+                    model.bert.encoder.layer[layer].intermediate.dense.bias.data = i.bias.data.clone()
 
             # Tune LoRA weights only
             for n, p in model.named_parameters():

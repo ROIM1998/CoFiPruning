@@ -123,4 +123,5 @@ python3 $code_dir/run_glue_prune.py \
     --apply_lora \
     --lora_alpha $lora_alpha \
     --lora_r $lora_r \
+    --tuning_intermediate \
     --lagrangian_warmup_epochs $lagrangian_warmup_epochs 2>&1 | tee ${output_dir}/log.txt
