@@ -129,8 +129,8 @@ class CoFiTrainer(Trainer):
         self.old_zs = None
         
         # Set early pruning ablation
-        self.early_pruning_epoch = 0
-        self.early_pruning_step_num = 0
+        self.early_pruning_epoch = -1
+        self.early_pruning_step_num = -1
         self.fixed_zs = None
 
         # Set cuda peak memory usage
@@ -342,7 +342,7 @@ class CoFiTrainer(Trainer):
 
                 if self.start_prune:
                     # Support early pruning with fixed masks
-                    if self.global_step <= self.early_pruning_step_num:
+                    if self.early_pruning_step_num < 0 or self.global_step <= self.early_pruning_step_num:
                         zs = self.l0_module.forward(training=True) #! get the zs
                         if self.global_step == self.early_pruning_step_num:
                             self.fixed_zs = {k: v.clone().detach() for k, v in zs.items()}

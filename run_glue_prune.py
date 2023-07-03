@@ -382,7 +382,7 @@ def main():
     if training_args.do_train:
         trainer.train()
         trainer.save_model()
-        pickle.dump(trainer.state, os.path.join(training_args.output_dir, "trainer_state.bin"))
+        pickle.dump(trainer.state, open(os.path.join(training_args.output_dir, "trainer_state.bin"), "wb"))
         tokenizer.save_pretrained(training_args.output_dir)
     
     logger.info(f"Peak memory used: ", trainer.peak_memory_usage, 'MB')
