@@ -1,9 +1,44 @@
 import torch
 import os
-from transformers.modeling_utils import prune_linear_layer
+import loralib as lora
+import torch.nn as nn
+
+from transformers.modeling_utils import prune_linear_layer as legacy_prune_linear_layer
 from transformers import AutoConfig, BertForSequenceClassification
 
 from utils.utils import calculate_parameters
+
+def prune_linear_layer(layer, index, dim=0):
+    if isinstance(layer, lora.Linear):
+        index = index.to(layer.weight.device)
+        W = layer.weight.index_select(dim, index).clone().detach()
+        if layer.bias is not None:
+            if dim == 1:
+                b = layer.bias.clone().detach()
+            else:
+                b = layer.bias[index].clone().detach()
+        new_size = list(layer.weight.size())
+        new_size[dim] = len(index)
+        dtype = layer.weight.dtype
+        new_layer = lora.Linear(new_size[1], new_size[0], r = layer.r, lora_alpha = layer.lora_alpha, lora_dropout = layer.lora_dropout.p if isinstance(layer.lora_dropout, nn.Dropout) else 0, dtype=dtype, bias=layer.bias is not None).to(layer.weight.device)
+        if dim == 0:
+            new_layer.lora_A.data = layer.lora_A.clone().detach().contiguous()
+            new_layer.lora_B.data = layer.lora_B.index_select(0, index).clone().detach().contiguous()
+        else:
+            new_layer.lora_B.data = layer.lora_B.clone().detach().contiguous()
+            new_layer.lora_A.data = layer.lora_A.index_select(1, index).clone().detach().contiguous()
+        new_layer.lora_A.requires_grad = layer.lora_A.requires_grad
+        new_layer.lora_B.requires_grad = layer.lora_B.requires_grad
+        new_layer.weight.requires_grad = False
+        new_layer.weight.copy_(W.contiguous())
+        new_layer.weight.requires_grad = layer.weight.requires_grad
+        if layer.bias is not None:
+            new_layer.bias.requires_grad = False
+            new_layer.bias.copy_(b.contiguous())
+            new_layer.bias.requires_grad = layer.bias.requires_grad
+        return new_layer
+    else:
+        return legacy_prune_linear_layer(layer, index, dim)
 
 def edit_config(config, additional_args):
     config.transform_embedding = additional_args.transform_embedding
