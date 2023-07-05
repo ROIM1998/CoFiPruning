@@ -650,7 +650,16 @@ class CoFiTrainer(Trainer):
 
         super().save_model(output_dir)
         
-    def prune_model_with_masks(self, zs):
+    def prune_model_with_tracked_zs(self, var_treshold: float, mean_treshold: float, accumulate_steps: int):
+        if self.zs_tracking is None:
+            return
+        head_zs = torch.stack(self.zs_tracking["head_z"][-accumulate_steps:]).view(self.model.config.num_layers, -1)
+        intermediate_zs = torch.stack(self.zs_tracking["intermediate_z"][-accumulate_steps:]).view(self.model.config.num_layers, -1)
+        head_z_vars, head_z_means = head_zs.var(dim=0), head_zs.mean(dim=0)
+        intermediate_z_vars, intermediate_z_means = intermediate_zs.var(dim=0), intermediate_zs.mean(dim=0)
+        zs = {}
+        zs['head_z'] = ~((head_z_vars < var_treshold) & (head_z_means < mean_treshold))
+        zs['intermediate_z'] = ~((intermediate_z_vars < var_treshold) & (intermediate_z_means < mean_treshold))
         pre_pruning_metrics = self.evaluate()
         prune_model_with_z(zs, self.model)
         self.start_prune = False
