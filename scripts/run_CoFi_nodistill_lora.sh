@@ -45,18 +45,12 @@ output_dir=${proj_dir}/out/${task_name}/${ex_cate}/${ex_name}
 # pruning and distillation
 pruning_type=$4
 target_sparsity=$5
-distillation_path=$6
-distill_layer_loss_alpha=$7
-distill_ce_loss_alpha=$8
-distill_temp=2
-# 2: fix hidden layers, 3: min distance matching without restriction, 4: min distance matching with restriction
-layer_distill_version=${9} 
 
 scheduler_type=linear
 
 # LoRA settings
-lora_r=${10}
-lora_alpha=${11}
+lora_r=$6
+lora_alpha=$7
 
 if [[ " ${glue_low[*]} " =~ ${task_name} ]]; then
     eval_steps=50
