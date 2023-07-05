@@ -649,6 +649,15 @@ class CoFiTrainer(Trainer):
             torch.save(zs, os.path.join(output_dir, "zs.pt"))
 
         super().save_model(output_dir)
+        
+    def prune_model_with_masks(self, zs):
+        pre_pruning_metrics = self.evaluate()
+        prune_model_with_z(zs, self.model)
+        self.start_prune = False
+        post_prune_metrics = self.evaluate()
+        self.start_prune = True
+        logger.info(f"Prepruning metrics: {pre_pruning_metrics}")
+        logger.info(f"Postpruning metrics: {post_prune_metrics}")
 
     def calculate_layer_distillation_loss(self, teacher_outputs, student_outputs, zs):
         mse_loss = torch.nn.MSELoss(reduction="mean")
