@@ -12,32 +12,19 @@ import torch
 
 from transformers.file_utils import ModelOutput
 
-if __version__.startswith("3"):
-    from transformers.modeling_roberta import (RobertaForSequenceClassification,
-                                               RobertaForMaskedLM,
-                                               RobertaModel,
-                                               RobertaEncoder,
-                                               RobertaLayer,
-                                               RobertaAttention,
-                                               RobertaSelfAttention,
-                                               RobertaSelfOutput,
-                                               RobertaOutput,
-                                               MaskedLMOutput,
-                                               create_position_ids_from_input_ids,
-                                               RobertaEmbeddings)
-else:
-    from transformers.models.roberta.modeling_roberta import (RobertaForSequenceClassification,
-                                                              RobertaForMaskedLM,
-                                                              RobertaModel,
-                                                              RobertaEncoder,
-                                                              RobertaLayer,
-                                                              RobertaAttention,
-                                                              RobertaSelfAttention,
-                                                              RobertaSelfOutput,
-                                                              RobertaOutput,
-                                                              MaskedLMOutput,
-                                                              create_position_ids_from_input_ids,
-                                                              RobertaEmbeddings)
+
+from transformers.models.roberta.modeling_roberta import (RobertaForSequenceClassification,
+                                                            RobertaForMaskedLM,
+                                                            RobertaModel,
+                                                            RobertaEncoder,
+                                                            RobertaLayer,
+                                                            RobertaAttention,
+                                                            RobertaSelfAttention,
+                                                            RobertaSelfOutput,
+                                                            RobertaOutput,
+                                                            MaskedLMOutput,
+                                                            create_position_ids_from_input_ids,
+                                                            RobertaEmbeddings)
 
 
 import torch

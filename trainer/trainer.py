@@ -240,25 +240,26 @@ class CoFiTrainer(Trainer):
 
         # Set LoRA training if needed
         model = self.model
+        backbone = self.model.bert if hasattr(self.model, "bert") else self.model.roberta
         if self.apply_lora:
             logger.info("Applying LoRA to the model...")
             # Support BERT only
             for layer in range(model.config.num_hidden_layers):
                 # Set attention query and value to LoRA layers
-                q, v = model.bert.encoder.layer[layer].attention.self.query, model.bert.encoder.layer[layer].attention.self.value
-                model.bert.encoder.layer[layer].attention.self.query = lora.Linear(q.in_features, q.out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
-                model.bert.encoder.layer[layer].attention.self.value = lora.Linear(v.in_features, v.out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
-                model.bert.encoder.layer[layer].attention.self.query.weight.data = q.weight.data.clone()
-                model.bert.encoder.layer[layer].attention.self.value.weight.data = v.weight.data.clone()
-                model.bert.encoder.layer[layer].attention.self.query.bias.data = q.bias.data.clone()
-                model.bert.encoder.layer[layer].attention.self.value.bias.data = v.bias.data.clone()
+                q, v = backbone.encoder.layer[layer].attention.self.query, backbone.encoder.layer[layer].attention.self.value
+                backbone.encoder.layer[layer].attention.self.query = lora.Linear(q.in_features, q.out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
+                backbone.encoder.layer[layer].attention.self.value = lora.Linear(v.in_features, v.out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
+                backbone.encoder.layer[layer].attention.self.query.weight.data = q.weight.data.clone()
+                backbone.encoder.layer[layer].attention.self.value.weight.data = v.weight.data.clone()
+                backbone.encoder.layer[layer].attention.self.query.bias.data = q.bias.data.clone()
+                backbone.encoder.layer[layer].attention.self.value.bias.data = v.bias.data.clone()
                 
                 # Also tuning intermediate up layers
                 if self.tuning_intermediate:
-                    i = model.bert.encoder.layer[layer].intermediate.dense
-                    model.bert.encoder.layer[layer].intermediate.dense = lora.Linear(i.in_features, i.  out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
-                    model.bert.encoder.layer[layer].intermediate.dense.weight.data = i.weight.data.clone()
-                    model.bert.encoder.layer[layer].intermediate.dense.bias.data = i.bias.data.clone()
+                    i = backbone.encoder.layer[layer].intermediate.dense
+                    backbone.encoder.layer[layer].intermediate.dense = lora.Linear(i.in_features, i.  out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
+                    backbone.encoder.layer[layer].intermediate.dense.weight.data = i.weight.data.clone()
+                    backbone.encoder.layer[layer].intermediate.dense.bias.data = i.bias.data.clone()
 
             # Tune LoRA weights only
             for n, p in model.named_parameters():
