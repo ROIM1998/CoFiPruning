@@ -28,7 +28,6 @@ save_steps=0
 
 # train parameters
 max_seq_length=128
-batch_size=32 
 learning_rate=2e-5
 reg_learning_rate=0.01
 epochs=20 
@@ -63,7 +62,7 @@ learning_rate=$5
 scheduler_type=none
 output_dir=$pretrained_pruned_model/FT-lr${learning_rate}
 epochs=20
-batch_size=64
+batch_size=32
 
 
 
