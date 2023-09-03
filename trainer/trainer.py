@@ -247,19 +247,22 @@ class CoFiTrainer(Trainer):
             for layer in range(model.config.num_hidden_layers):
                 # Set attention query and value to LoRA layers
                 q, v = backbone.encoder.layer[layer].attention.self.query, backbone.encoder.layer[layer].attention.self.value
-                backbone.encoder.layer[layer].attention.self.query = lora.Linear(q.in_features, q.out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
-                backbone.encoder.layer[layer].attention.self.value = lora.Linear(v.in_features, v.out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
-                backbone.encoder.layer[layer].attention.self.query.weight.data = q.weight.data.clone()
-                backbone.encoder.layer[layer].attention.self.value.weight.data = v.weight.data.clone()
-                backbone.encoder.layer[layer].attention.self.query.bias.data = q.bias.data.clone()
-                backbone.encoder.layer[layer].attention.self.value.bias.data = v.bias.data.clone()
+                if q is not None and not isinstance(q, lora.Linear):
+                    backbone.encoder.layer[layer].attention.self.query = lora.Linear(q.in_features, q.out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
+                    backbone.encoder.layer[layer].attention.self.query.weight.data = q.weight.data.clone()
+                    backbone.encoder.layer[layer].attention.self.query.bias.data = q.bias.data.clone()
+                if v is not None and not isinstance(v, lora.Linear):
+                    backbone.encoder.layer[layer].attention.self.value = lora.Linear(v.in_features, v.out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
+                    backbone.encoder.layer[layer].attention.self.value.weight.data = v.weight.data.clone()
+                    backbone.encoder.layer[layer].attention.self.value.bias.data = v.bias.data.clone()
                 
                 # Also tuning intermediate up layers
                 if self.tuning_intermediate:
                     i = backbone.encoder.layer[layer].intermediate.dense
-                    backbone.encoder.layer[layer].intermediate.dense = lora.Linear(i.in_features, i.  out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
-                    backbone.encoder.layer[layer].intermediate.dense.weight.data = i.weight.data.clone()
-                    backbone.encoder.layer[layer].intermediate.dense.bias.data = i.bias.data.clone()
+                    if i is not None and not isinstance(i, lora.Linear):
+                        backbone.encoder.layer[layer].intermediate.dense = lora.Linear(i.in_features, i.  out_features, r=self.lora_r, lora_alpha=self.lora_alpha).to(self.args.device)
+                        backbone.encoder.layer[layer].intermediate.dense.weight.data = i.weight.data.clone()
+                        backbone.encoder.layer[layer].intermediate.dense.bias.data = i.bias.data.clone()
 
             # Tune LoRA weights only
             for n, p in model.named_parameters():
@@ -277,20 +280,20 @@ class CoFiTrainer(Trainer):
         total_train_batch_size = (
             self.args.train_batch_size
             * self.args.gradient_accumulation_steps
-            * (torch.distributed.get_world_size() if self.args.local_rank != -1 else 1)
+            # * (torch.distributed.get_world_size() if self.args.local_rank != -1 else 1)
         )
 
         logger.info("***** Running training *****")
 
-        logger.info("  Num examples = %d", self.num_examples(train_dataloader))
-        logger.info("  Num Epochs = %d", num_train_epochs)
-        logger.info("  Instantaneous batch size per device = %d",
+        logger.info("  Num examples = %d" % self.num_examples(train_dataloader))
+        logger.info("  Num Epochs = %d" % num_train_epochs)
+        logger.info("  Instantaneous batch size per device = %d" %
                     self.args.per_device_train_batch_size)
         logger.info(
-            "  Total train batch size (w. parallel, distributed & accumulation) = %d", total_train_batch_size)
-        logger.info("  Gradient Accumulation steps = %d",
+            "  Total train batch size (w. parallel, distributed & accumulation) = %d" % total_train_batch_size)
+        logger.info("  Gradient Accumulation steps = %d" %
                     self.args.gradient_accumulation_steps)
-        logger.info("  Total optimization steps = %d", self.t_total)
+        logger.info("  Total optimization steps = %d" % self.t_total)
 
         self.global_step = 0
         self.epoch = 0
@@ -496,9 +499,9 @@ class CoFiTrainer(Trainer):
         model = self.model
 
         batch_size = dataloader.batch_size
-        logger.info("***** Running %s *****", description)
-        logger.info("  Num examples = %d", self.num_examples(dataloader))
-        logger.info("  Batch size = %d", batch_size)
+        logger.info("***** Running %s *****" % description)
+        logger.info("  Num examples = %d" % self.num_examples(dataloader))
+        logger.info("  Batch size = %d" % batch_size if batch_size is not None else "None")
 
         # Initialize containers
         # losses/preds/labels on GPU/TPU (accumulated for eval_accumulation_steps)

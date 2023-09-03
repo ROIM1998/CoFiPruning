@@ -1,17 +1,19 @@
 # allows removing layers of heads and mlps
 import pdb
-
+import os
 import transformers
 
 __version__ = transformers.__version__
 
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import torch
+import loralib as lora
 
+from utils.cofi_utils import *
 from transformers.file_utils import ModelOutput
-
+from transformers import AutoConfig
 
 from transformers.models.roberta.modeling_roberta import (RobertaForSequenceClassification,
                                                             RobertaForMaskedLM,
@@ -139,6 +141,52 @@ class CoFiRobertaForSequenceClassification(RobertaForSequenceClassification):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+        
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path: Optional[Union[str, os.PathLike]], *model_args, **kwargs):
+        if os.path.exists(pretrained_model_name_or_path):
+            weights = torch.load(os.path.join(pretrained_model_name_or_path, "pytorch_model.bin"), map_location=torch.device("cpu"))
+        else:
+            return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)
+            
+        
+        # Convert old format to new format if needed from a PyTorch state_dict
+        old_keys = []
+        new_keys = []
+        for key in weights.keys():
+            new_key = None
+            if "gamma" in key:
+                new_key = key.replace("gamma", "weight")
+            if "beta" in key:
+                new_key = key.replace("beta", "bias")
+            if new_key:
+                old_keys.append(key)
+                new_keys.append(new_key)
+        for old_key, new_key in zip(old_keys, new_keys):
+            weights[new_key] = weights.pop(old_key)
+
+        if "config" not in kwargs:
+            config = AutoConfig.from_pretrained(pretrained_model_name_or_path)
+            config.do_layer_distill = False
+        else:
+            config = kwargs["config"]
+        
+        model = cls(config)
+        
+        # Convert layers to LoRA if needed
+        lora_B_param_names = [k for k in weights.keys() if "lora_B" in k]
+        lora_layer_names = [k.rsplit(".", 1)[0] for k in lora_B_param_names]
+        parent_layer_names = [k.rsplit(".", 1)[0] for k in lora_layer_names]
+        modules = dict(model.named_modules())
+        for lora_B_name, lora_layer_name, parent_layer_name in zip(lora_B_param_names, lora_layer_names, parent_layer_names):
+            parent_layer = modules[parent_layer_name]
+            target_layer = modules[lora_layer_name]
+            layer_lora_r = weights[lora_B_name].shape[1]
+            layer_out_features, layer_in_features = target_layer.weight.shape
+            new_layer = lora.Linear(in_features=layer_in_features, out_features=layer_out_features, r=layer_lora_r, lora_alpha=16)
+            setattr(parent_layer, lora_layer_name.split('.')[-1], new_layer)
+
+        return model
 
 
     def prune_indices(self, indices_to_prune: Dict[int, List[int]], vo_indices_to_prune: Dict[int, List[int]] = None,
